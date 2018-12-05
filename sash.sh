@@ -56,7 +56,9 @@ function sash {
   eval $(_get_data private_ips 5 ${instances_data[@]})
 
   for i in ${!ips[@]}; do
-    ips[i]=${ips[i]//None/${private_ips[i]}}
+    # alkara changed
+    #ips[i]=${ips[i]//None/${private_ips[i]}}
+    ips[i]=${private_ips[i]}
   done
 
   local number_of_instances=$((${#ips[@]}))
@@ -137,7 +139,9 @@ function sash {
       ips_with_user+=("${users[$i]}@${ips[$i]}")
     done
 
-    if [[ `uname` == 'Darwin' ]]; then
+    # alkara changed
+    #if [[ `uname` == 'Darwin' ]]; then
+    if $(which tmux-cssh); then
       (set -x; tmux-cssh -c ~/.aws/$instances_data.pem $* ${ips_with_user[@]})
     else
       local ssh_args
