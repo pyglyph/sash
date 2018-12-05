@@ -58,19 +58,21 @@ function sash {
   declare -a resource_ids
   declare -a users
   declare -a private_ips
-  for inst in "$(echo "$instance" | jq -c -r '.')";
+  OLD_IFS="$IFS"
+  IFS=$'\n'
+  for inst in $(echo "$instance");
   do
-    pems+="$(echo $inst | jq -r -c '.key')"
-    ips+="$(echo $inst | jq -r -c '.publicip')"
-    hosts+="$(echo $inst | jq -r -c '.name')"
-    resource_ids+="$(echo $inst | jq -r -c '.instanceid')"
-    user="$(echo $inst | jq -r -c '.sashuser')"
+    pems+=("$(echo $inst | jq -r -c '.key')")
+    ips+=("$(echo $inst | jq -r -c '.publicip')")
+    hosts+=("$(echo $inst | jq -r -c '.name')")
+    resource_ids+=("$(echo $inst | jq -r -c '.instanceid')")
+    user=("$(echo $inst | jq -r -c '.sashuser')")
+    private_ips+=("$(echo $inst | jq -r -c '.privateip')")
     if [[ "$user" == "null" ]] ; then
       users+=(${SASH_DEFAULT_USER})
     else
       users+=("${user}")
     fi
-    private_ips+="$(echo $inst | jq -r -c '.privateip')"
   done
 #  eval $(_get_data pems 0 ${instances_data[@]})
 #  eval $(_get_data ips 1 ${instances_data[@]})
@@ -201,8 +203,12 @@ function sash {
   if [[ $number_of_instances > 1 ]]; then
     echo "(out of ${number_of_instances} instances)"
   fi
-  
-  (set -x; ssh -i ~/.aws/$pem.pem ${users[$idx-1]}@$ip $*)
+ 
+  ssh_cmd_default_user="ssh -i ~/.aws/$pem.pem ${users[$idx-1]}@$ip $*" 
+  ssh_cmd_ubuntu_user="ssh -i ~/.aws/$pem.pem ubuntu@$ip $*" 
+  ssh_cmd_ec2__user="ssh -i ~/.aws/$pem.pem ec2-user@$ip $*" 
+  #(set -x; ssh -i ~/.aws/$pem.pem ${users[$idx-1]}@$ip $*)
+  (set -x; ${ssh_cmd_default_user} || ${ssh_cmd_ubuntu_user} || ${ssh_cmd_ec2__user})
 }
 
 function _get_data {
