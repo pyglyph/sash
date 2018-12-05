@@ -27,18 +27,22 @@ function private_dns_to_name {
 function sash {
   local host=$1
   shift
+  SASH_DEFAULT_USER="$(id -un)"
 
   if [ -z $host ]; then
     echo "Please enter machine name"
     return 1
   fi
 
-  local query="Reservations[*].Instances[].[KeyName,PublicIpAddress,Tags[?Key==\`Name\`].Value | [0],InstanceId,Tags[?Key==\`SashUserName\`].Value | [0],PrivateIpAddress]"
+  #local query="Reservations[*].Instances[].[KeyName,PublicIpAddress,Tags[?Key==\`Name\`].Value | [0],InstanceId,Tags[?Key==\`SashUserName\`].Value | [0],PrivateIpAddress]"
+  local query="Reservations[*].Instances[*].{key:KeyName,publicip:PublicIpAddress,name:Tags[?Key==\`Name\`].Value | [0],instanceid:InstanceId,sashuser:Tags[?Key==\`SashUserName\`].Value | [0],privateip:PrivateIpAddress}|[]"
 
-  local instance=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$host" "Name=instance-state-name,Values=running" --query "$query" --output text | sort -n)
+  #local instance=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$host" "Name=instance-state-name,Values=running" --query "$query" --output text | sort -n)
+  local instance="$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$host" "Name=instance-state-name,Values=running" --query "$query" --output json | jq -c -r '.[]' )"
 
   if [[ -z $instance ]]; then
-    instance=$(aws ec2 describe-instances --filters "Name=private-ip-address,Values=$host" "Name=instance-state-name,Values=running" --query "$query" --output text | sort -n)
+    #instance=$(aws ec2 describe-instances --filters "Name=private-ip-address,Values=$host" "Name=instance-state-name,Values=running" --query "$query" --output text | sort -n)
+    instance=$(aws ec2 describe-instances --filters "Name=private-ip-address,Values=$host" "Name=instance-state-name,Values=running" --query "$query" --output json | jq -c -r '.[]')
     if [[ -z $instance ]]; then
       echo Could not find an instance named $host
       return 1
@@ -48,12 +52,32 @@ function sash {
   local default_user=${SASH_DEFAULT_USER:-ubuntu}
   read -a instances_data <<< $(echo ${instance} | xargs)
 
-  eval $(_get_data pems 0 ${instances_data[@]})
-  eval $(_get_data ips 1 ${instances_data[@]})
-  eval $(_get_data hosts 2 ${instances_data[@]})
-  eval $(_get_data resource_ids 3 ${instances_data[@]})
-  eval $(_get_data users 4 ${instances_data[@]//None/$default_user})
-  eval $(_get_data private_ips 5 ${instances_data[@]})
+  declare -a perms 
+  declare -a ips
+  declare -a hosts
+  declare -a resource_ids
+  declare -a users
+  declare -a private_ips
+  for inst in "$(echo "$instance" | jq -c -r '.')";
+  do
+    pems+="$(echo $inst | jq -r -c '.key')"
+    ips+="$(echo $inst | jq -r -c '.publicip')"
+    hosts+="$(echo $inst | jq -r -c '.name')"
+    resource_ids+="$(echo $inst | jq -r -c '.instanceid')"
+    user="$(echo $inst | jq -r -c '.sashuser')"
+    if [[ "$user" == "null" ]] ; then
+      users+=(${SASH_DEFAULT_USER})
+    else
+      users+=("${user}")
+    fi
+    private_ips+="$(echo $inst | jq -r -c '.privateip')"
+  done
+#  eval $(_get_data pems 0 ${instances_data[@]})
+#  eval $(_get_data ips 1 ${instances_data[@]})
+#  eval $(_get_data hosts 2 ${instances_data[@]})
+#  eval $(_get_data resource_ids 3 ${instances_data[@]})
+#  eval $(_get_data users 4 ${instances_data[@]//None/$default_user})
+#  eval $(_get_data private_ips 5 ${instances_data[@]})
 
   for i in ${!ips[@]}; do
     # alkara changed
