@@ -27,7 +27,9 @@ function private_dns_to_name {
 function sash {
   local host=$1
   shift
-  SASH_DEFAULT_USER="$(id -un)"
+  if [[ -z "$SASH_DEFAULT_USER" ]]; then
+    SASH_DEFAULT_USER="$(id -un)"
+  fi
 
   if [ -z $host ]; then
     echo "Please enter machine name"
@@ -169,7 +171,7 @@ function sash {
     # alkara changed
     #if [[ `uname` == 'Darwin' ]]; then
     if $(which tmux-cssh); then
-      (set -x; tmux-cssh -c ~/.aws/$instances_data.pem $* ${ips_with_user[@]})
+      (set -x; tmux-cssh $* ${ips_with_user[@]})
     else
       local ssh_args
       if [[ $1 == '--ssh_args' ]]; then
@@ -205,7 +207,7 @@ function sash {
     echo "(out of ${number_of_instances} instances)"
   fi
 
-  ssh_opts=" -o AddKeysToAgent -o ForwardAgent -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes "
+  ssh_opts=" -o AddKeysToAgent=yes -o ForwardAgent=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes "
   ssh_cmd_default_user="ssh ${ssh_opts} ${users[$idx-1]}@$ip $*" 
   ssh_cmd_ubuntu_user="ssh ${ssh_opts} ubuntu@$ip $*" 
   ssh_cmd_ec2__user="ssh ${ssh_opts} ec2-user@$ip $*" 
