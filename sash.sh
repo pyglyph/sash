@@ -52,7 +52,7 @@ function sash {
   local default_user=${SASH_DEFAULT_USER:-ubuntu}
   read -a instances_data <<< $(echo ${instance} | xargs)
 
-  declare -a perms 
+  declare -a pems 
   declare -a ips
   declare -a hosts
   declare -a resource_ids
@@ -74,6 +74,7 @@ function sash {
       users+=("${user}")
     fi
   done
+  export IFS="$OLD_IFS"
 #  eval $(_get_data pems 0 ${instances_data[@]})
 #  eval $(_get_data ips 1 ${instances_data[@]})
 #  eval $(_get_data hosts 2 ${instances_data[@]})
@@ -203,12 +204,13 @@ function sash {
   if [[ $number_of_instances > 1 ]]; then
     echo "(out of ${number_of_instances} instances)"
   fi
- 
-  ssh_cmd_default_user="ssh -i ~/.aws/$pem.pem ${users[$idx-1]}@$ip $*" 
-  ssh_cmd_ubuntu_user="ssh -i ~/.aws/$pem.pem ubuntu@$ip $*" 
-  ssh_cmd_ec2__user="ssh -i ~/.aws/$pem.pem ec2-user@$ip $*" 
+
+  ssh_opts=" -o AddKeysToAgent -o ForwardAgent -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes "
+  ssh_cmd_default_user="ssh ${ssh_opts} ${users[$idx-1]}@$ip $*" 
+  ssh_cmd_ubuntu_user="ssh ${ssh_opts} ubuntu@$ip $*" 
+  ssh_cmd_ec2__user="ssh ${ssh_opts} ec2-user@$ip $*" 
   #(set -x; ssh -i ~/.aws/$pem.pem ${users[$idx-1]}@$ip $*)
-  (set -x; ${ssh_cmd_default_user} || ${ssh_cmd_ubuntu_user} || ${ssh_cmd_ec2__user})
+  (set -x; $ssh_cmd_default_user || $ssh_cmd_ubuntu_user || $ssh_cmd_ec2__user)
 }
 
 function _get_data {
@@ -267,3 +269,5 @@ function _sash {
 }
 
 complete -F _sash sash
+
+sash $@
